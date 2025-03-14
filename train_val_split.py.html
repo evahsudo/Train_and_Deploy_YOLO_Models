@@ -1,0 +1,107 @@
+<html>
+<head>
+<title>train_val_split.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #7a7e85;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #6aab73;}
+.s5 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+train_val_split.py</font>
+</center></td></tr></table>
+<pre><span class="s0"># Split between train and val folders</span>
+
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">import </span><span class="s1">random</span>
+<span class="s2">import </span><span class="s1">os</span>
+<span class="s2">import </span><span class="s1">sys</span>
+<span class="s2">import </span><span class="s1">shutil</span>
+<span class="s2">import </span><span class="s1">argparse</span>
+
+
+<span class="s0"># Define and parse user input arguments</span>
+
+<span class="s1">parser </span><span class="s3">= </span><span class="s1">argparse</span><span class="s3">.</span><span class="s1">ArgumentParser</span><span class="s3">()</span>
+<span class="s1">parser</span><span class="s3">.</span><span class="s1">add_argument</span><span class="s3">(</span><span class="s4">'--datapath'</span><span class="s3">, </span><span class="s1">help</span><span class="s3">=</span><span class="s4">'Path to data folder containing image and annotation files'</span><span class="s3">,</span>
+                    <span class="s1">required</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+<span class="s1">parser</span><span class="s3">.</span><span class="s1">add_argument</span><span class="s3">(</span><span class="s4">'--train_pct'</span><span class="s3">, </span><span class="s1">help</span><span class="s3">=</span><span class="s4">'Ratio of images to go to train folder; </span><span class="s2">\ 
+                    </span><span class="s4">the rest go to validation folder (example: &quot;.8&quot;)'</span><span class="s3">,</span>
+                    <span class="s1">default</span><span class="s3">=</span><span class="s5">.8</span><span class="s3">)</span>
+
+<span class="s1">args </span><span class="s3">= </span><span class="s1">parser</span><span class="s3">.</span><span class="s1">parse_args</span><span class="s3">()</span>
+
+<span class="s1">data_path </span><span class="s3">= </span><span class="s1">args</span><span class="s3">.</span><span class="s1">datapath</span>
+<span class="s1">train_percent </span><span class="s3">= </span><span class="s1">float</span><span class="s3">(</span><span class="s1">args</span><span class="s3">.</span><span class="s1">train_pct</span><span class="s3">)</span>
+
+<span class="s0"># Check for valid entries</span>
+<span class="s2">if not </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">isdir</span><span class="s3">(</span><span class="s1">data_path</span><span class="s3">):</span>
+   <span class="s1">print</span><span class="s3">(</span><span class="s4">'Directory specified by --datapath not found. Verify the path is correct (and uses double back slashes if on Windows) and try again.'</span><span class="s3">)</span>
+   <span class="s1">sys</span><span class="s3">.</span><span class="s1">exit</span><span class="s3">(</span><span class="s5">0</span><span class="s3">)</span>
+<span class="s2">if </span><span class="s1">train_percent </span><span class="s3">&lt; </span><span class="s5">.01 </span><span class="s2">or </span><span class="s1">train_percent </span><span class="s3">&gt; </span><span class="s5">0.99</span><span class="s3">:</span>
+   <span class="s1">print</span><span class="s3">(</span><span class="s4">'Invalid entry for train_pct. Please enter a number between .01 and .99.'</span><span class="s3">)</span>
+   <span class="s1">sys</span><span class="s3">.</span><span class="s1">exit</span><span class="s3">(</span><span class="s5">0</span><span class="s3">)</span>
+<span class="s1">val_percent </span><span class="s3">= </span><span class="s5">1 </span><span class="s3">- </span><span class="s1">train_percent</span>
+
+<span class="s0"># Define path to input dataset</span>
+<span class="s1">input_image_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">data_path</span><span class="s3">,</span><span class="s4">'images'</span><span class="s3">)</span>
+<span class="s1">input_label_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">data_path</span><span class="s3">,</span><span class="s4">'labels'</span><span class="s3">)</span>
+
+<span class="s0"># Define paths to image and annotation folders</span>
+<span class="s1">cwd </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">getcwd</span><span class="s3">()</span>
+<span class="s1">train_img_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">cwd</span><span class="s3">,</span><span class="s4">'data/train/images'</span><span class="s3">)</span>
+<span class="s1">train_txt_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">cwd</span><span class="s3">,</span><span class="s4">'data/train/labels'</span><span class="s3">)</span>
+<span class="s1">val_img_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">cwd</span><span class="s3">,</span><span class="s4">'data/validation/images'</span><span class="s3">)</span>
+<span class="s1">val_txt_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">cwd</span><span class="s3">,</span><span class="s4">'data/validation/labels'</span><span class="s3">)</span>
+
+<span class="s0"># Create folders if they don't already exist</span>
+<span class="s2">for </span><span class="s1">dir_path </span><span class="s2">in </span><span class="s3">[</span><span class="s1">train_img_path</span><span class="s3">, </span><span class="s1">train_txt_path</span><span class="s3">, </span><span class="s1">val_img_path</span><span class="s3">, </span><span class="s1">val_txt_path</span><span class="s3">]:</span>
+   <span class="s2">if not </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">(</span><span class="s1">dir_path</span><span class="s3">):</span>
+      <span class="s1">os</span><span class="s3">.</span><span class="s1">makedirs</span><span class="s3">(</span><span class="s1">dir_path</span><span class="s3">)</span>
+      <span class="s1">print</span><span class="s3">(</span><span class="s4">f'Created folder at </span><span class="s2">{</span><span class="s1">dir_path</span><span class="s2">}</span><span class="s4">.'</span><span class="s3">)</span>
+
+
+<span class="s0"># Get list of all images and annotation files</span>
+<span class="s1">img_file_list </span><span class="s3">= [</span><span class="s1">path </span><span class="s2">for </span><span class="s1">path </span><span class="s2">in </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">input_image_path</span><span class="s3">).</span><span class="s1">rglob</span><span class="s3">(</span><span class="s4">'*'</span><span class="s3">)]</span>
+<span class="s1">txt_file_list </span><span class="s3">= [</span><span class="s1">path </span><span class="s2">for </span><span class="s1">path </span><span class="s2">in </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">input_label_path</span><span class="s3">).</span><span class="s1">rglob</span><span class="s3">(</span><span class="s4">'*'</span><span class="s3">)]</span>
+
+<span class="s1">print</span><span class="s3">(</span><span class="s4">f'Number of image files: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">img_file_list</span><span class="s3">)</span><span class="s2">}</span><span class="s4">'</span><span class="s3">)</span>
+<span class="s1">print</span><span class="s3">(</span><span class="s4">f'Number of annotation files: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">txt_file_list</span><span class="s3">)</span><span class="s2">}</span><span class="s4">'</span><span class="s3">)</span>
+
+<span class="s0"># Determine number of files to move to each folder</span>
+<span class="s1">file_num </span><span class="s3">= </span><span class="s1">len</span><span class="s3">(</span><span class="s1">img_file_list</span><span class="s3">)</span>
+<span class="s1">train_num </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s1">file_num</span><span class="s3">*</span><span class="s1">train_percent</span><span class="s3">)</span>
+<span class="s1">val_num </span><span class="s3">= </span><span class="s1">file_num </span><span class="s3">- </span><span class="s1">train_num</span>
+<span class="s1">print</span><span class="s3">(</span><span class="s4">'Images moving to train: %d' </span><span class="s3">% </span><span class="s1">train_num</span><span class="s3">)</span>
+<span class="s1">print</span><span class="s3">(</span><span class="s4">'Images moving to validation: %d' </span><span class="s3">% </span><span class="s1">val_num</span><span class="s3">)</span>
+
+<span class="s0"># Select files randomly and copy them to train or val folders</span>
+<span class="s2">for </span><span class="s1">i</span><span class="s3">, </span><span class="s1">set_num </span><span class="s2">in </span><span class="s1">enumerate</span><span class="s3">([</span><span class="s1">train_num</span><span class="s3">, </span><span class="s1">val_num</span><span class="s3">]):</span>
+  <span class="s2">for </span><span class="s1">ii </span><span class="s2">in </span><span class="s1">range</span><span class="s3">(</span><span class="s1">set_num</span><span class="s3">):</span>
+    <span class="s1">img_path </span><span class="s3">= </span><span class="s1">random</span><span class="s3">.</span><span class="s1">choice</span><span class="s3">(</span><span class="s1">img_file_list</span><span class="s3">)</span>
+    <span class="s1">img_fn </span><span class="s3">= </span><span class="s1">img_path</span><span class="s3">.</span><span class="s1">name</span>
+    <span class="s1">base_fn </span><span class="s3">= </span><span class="s1">img_path</span><span class="s3">.</span><span class="s1">stem</span>
+    <span class="s1">txt_fn </span><span class="s3">= </span><span class="s1">base_fn </span><span class="s3">+ </span><span class="s4">'.txt'</span>
+    <span class="s1">txt_path </span><span class="s3">= </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">input_label_path</span><span class="s3">,</span><span class="s1">txt_fn</span><span class="s3">)</span>
+
+    <span class="s2">if </span><span class="s1">i </span><span class="s3">== </span><span class="s5">0</span><span class="s3">: </span><span class="s0"># Copy first set of files to train folders</span>
+      <span class="s1">new_img_path</span><span class="s3">, </span><span class="s1">new_txt_path </span><span class="s3">= </span><span class="s1">train_img_path</span><span class="s3">, </span><span class="s1">train_txt_path</span>
+    <span class="s2">elif </span><span class="s1">i </span><span class="s3">== </span><span class="s5">1</span><span class="s3">: </span><span class="s0"># Copy second set of files to the validation folders</span>
+      <span class="s1">new_img_path</span><span class="s3">, </span><span class="s1">new_txt_path </span><span class="s3">= </span><span class="s1">val_img_path</span><span class="s3">, </span><span class="s1">val_txt_path</span>
+
+    <span class="s1">shutil</span><span class="s3">.</span><span class="s1">copy</span><span class="s3">(</span><span class="s1">img_path</span><span class="s3">, </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">new_img_path</span><span class="s3">,</span><span class="s1">img_fn</span><span class="s3">))</span>
+    <span class="s0">#os.rename(img_path, os.path.join(new_img_path,img_fn))</span>
+    <span class="s2">if </span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">(</span><span class="s1">txt_path</span><span class="s3">): </span><span class="s0"># If txt path does not exist, this is a background image, so skip txt file</span>
+      <span class="s1">shutil</span><span class="s3">.</span><span class="s1">copy</span><span class="s3">(</span><span class="s1">txt_path</span><span class="s3">,</span><span class="s1">os</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">join</span><span class="s3">(</span><span class="s1">new_txt_path</span><span class="s3">,</span><span class="s1">txt_fn</span><span class="s3">))</span>
+      <span class="s0">#os.rename(txt_path,os.path.join(new_txt_path,txt_fn))</span>
+
+    <span class="s1">img_file_list</span><span class="s3">.</span><span class="s1">remove</span><span class="s3">(</span><span class="s1">img_path</span><span class="s3">)</span></pre>
+</body>
+</html>
