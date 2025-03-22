@@ -1,86 +1,73 @@
-# Split between train and val folders
-
 from pathlib import Path
 import random
 import os
-import sys
 import shutil
 import argparse
 
-
-# Define and parse user input arguments
-
+# ✅ Define and parse user input arguments
 parser = argparse.ArgumentParser()
-parser.add_argument('--datapath', help='Path to data folder containing image and annotation files',
-                    required=True)
-parser.add_argument('--train_pct', help='Ratio of images to go to train folder; \
-                    the rest go to validation folder (example: ".8")',
-                    default=.8)
+parser.add_argument('--datapath', required=True, help='Path to data folder containing images and labels')
+parser.add_argument('--train_pct', type=float, default=0.8, help='Ratio of images for training (example: 0.8 for 80%)')
 
 args = parser.parse_args()
 
-data_path = args.datapath
-train_percent = float(args.train_pct)
+data_path = Path(args.datapath)
+train_percent = args.train_pct
 
-# Check for valid entries
-if not os.path.isdir(data_path):
-   print('Directory specified by --datapath not found. Verify the path is correct (and uses double back slashes if on Windows) and try again.')
-   sys.exit(0)
-if train_percent < .01 or train_percent > 0.99:
-   print('Invalid entry for train_pct. Please enter a number between .01 and .99.')
-   sys.exit(0)
-val_percent = 1 - train_percent
+# ✅ Check for valid entries
+if not data_path.exists():
+    raise FileNotFoundError(f"Directory {data_path} not found. Check the path and try again.")
+if not (0.01 <= train_percent <= 0.99):
+    raise ValueError('Invalid value for --train_pct. Must be between 0.01 and 0.99.')
 
-# Define path to input dataset
-input_image_path = os.path.join(data_path,'images')
-input_label_path = os.path.join(data_path,'labels')
+# ✅ Define input paths
+input_image_path = data_path / 'images'
+input_label_path = data_path / 'labels'
 
-# Define paths to image and annotation folders
-cwd = os.getcwd()
-train_img_path = os.path.join(cwd,'data/train/images')
-train_txt_path = os.path.join(cwd,'data/train/labels')
-val_img_path = os.path.join(cwd,'data/validation/images')
-val_txt_path = os.path.join(cwd,'data/validation/labels')
+# ✅ Define YOLO folder structure
+output_path = Path('data')
+train_img_path = output_path / 'train/images'
+train_lbl_path = output_path / 'train/labels'
+val_img_path = output_path / 'val/images'
+val_lbl_path = output_path / 'val/labels'
 
-# Create folders if they don't already exist
-for dir_path in [train_img_path, train_txt_path, val_img_path, val_txt_path]:
-   if not os.path.exists(dir_path):
-      os.makedirs(dir_path)
-      print(f'Created folder at {dir_path}.')
+# ✅ Create necessary folders
+for folder in [train_img_path, train_lbl_path, val_img_path, val_lbl_path]:
+    folder.mkdir(parents=True, exist_ok=True)
 
+# ✅ Get list of all images
+image_formats = ['.jpg', '.jpeg', '.png']
+img_file_list = list(input_image_path.rglob('*'))
+img_file_list = [f for f in img_file_list if f.suffix.lower() in image_formats]
 
-# Get list of all images and annotation files
-img_file_list = [path for path in Path(input_image_path).rglob('*')]
-txt_file_list = [path for path in Path(input_label_path).rglob('*')]
+random.shuffle(img_file_list)  # Shuffle to ensure randomness
 
-print(f'Number of image files: {len(img_file_list)}')
-print(f'Number of annotation files: {len(txt_file_list)}')
+# ✅ Split dataset into train/validation
+split_idx = int(len(img_file_list) * train_percent)
+train_files = img_file_list[:split_idx]
+val_files = img_file_list[split_idx:]
 
-# Determine number of files to move to each folder
-file_num = len(img_file_list)
-train_num = int(file_num*train_percent)
-val_num = file_num - train_num
-print('Images moving to train: %d' % train_num)
-print('Images moving to validation: %d' % val_num)
+# ✅ Function to move files
+def move_files(file_list, img_dest, lbl_dest):
+    for img_path in file_list:
+        img_name = img_path.name
+        label_name = img_path.stem + '.txt'
+        label_path = input_label_path / label_name
 
-# Select files randomly and copy them to train or val folders
-for i, set_num in enumerate([train_num, val_num]):
-  for ii in range(set_num):
-    img_path = random.choice(img_file_list)
-    img_fn = img_path.name
-    base_fn = img_path.stem
-    txt_fn = base_fn + '.txt'
-    txt_path = os.path.join(input_label_path,txt_fn)
+        # Move image
+        shutil.move(str(img_path), str(img_dest / img_name))
 
-    if i == 0: # Copy first set of files to train folders
-      new_img_path, new_txt_path = train_img_path, train_txt_path
-    elif i == 1: # Copy second set of files to the validation folders
-      new_img_path, new_txt_path = val_img_path, val_txt_path
+        # Move label if exists
+        if label_path.exists():
+            shutil.move(str(label_path), str(lbl_dest / label_name))
 
-    shutil.copy(img_path, os.path.join(new_img_path,img_fn))
-    #os.rename(img_path, os.path.join(new_img_path,img_fn))
-    if os.path.exists(txt_path): # If txt path does not exist, this is a background image, so skip txt file
-      shutil.copy(txt_path,os.path.join(new_txt_path,txt_fn))
-      #os.rename(txt_path,os.path.join(new_txt_path,txt_fn))
+# ✅ Move train and val files
+print(f"Moving {len(train_files)} files to train folder...")
+move_files(train_files, train_img_path, train_lbl_path)
 
-    img_file_list.remove(img_path)
+print(f"Moving {len(val_files)} files to val folder...")
+move_files(val_files, val_img_path, val_lbl_path)
+
+# ✅ Summary
+print(f"✅ Train set: {len(train_files)} images")
+print(f"✅ Validation set: {len(val_files)} images")
