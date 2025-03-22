@@ -20,7 +20,7 @@ if not data_path.exists():
 if not (0.01 <= train_pct <= 0.99):
     raise ValueError("Error: --train_pct must be between 0.01 and 0.99")
 
-# ✅ Handle nested folders & file extensions
+# ✅ Supported formats
 image_formats = {'.jpg', '.jpeg', '.png', '.bmp'}
 label_formats = {'.txt'}
 
@@ -56,9 +56,16 @@ val_data = dataset[split_idx:]
 # ✅ Function to move data
 def move_data(data, img_dest, lbl_dest):
     for img, lbl in data:
-        shutil.move(str(img), str(img_dest / img.name))
+        # Move image
+        dest_img = img_dest / img.name
+        if not dest_img.exists():
+            shutil.move(str(img), str(dest_img))
+
+        # Move label if it exists
         if lbl and lbl.exists():
-            shutil.move(str(lbl), str(lbl_dest / lbl.name))
+            dest_lbl = lbl_dest / lbl.name
+            if not dest_lbl.exists():
+                shutil.move(str(lbl), str(dest_lbl))
 
 # ✅ Move train and validation data
 print(f"Moving {len(train_data)} files to train folder...")
